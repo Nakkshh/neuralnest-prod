@@ -19,8 +19,6 @@ spring:
           time_zone: UTC
         timezone:
           default_storage: NORMALIZE_UTC
-
-spring:
   security:
     jwt:
       secret: ${SPRING_SECURITY_JWT_SECRET:default-local-secret}
