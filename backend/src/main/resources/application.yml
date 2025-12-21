@@ -1,29 +1,31 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/neuralnest?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
-    username: postgres
-    password: neuralnest123
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:postgres}?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:neuralnest123}
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-init-sql: SET TIME ZONE 'UTC'
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         jdbc:
           time_zone: UTC
         timezone:
-          default_storage: NORMALIZE_UTC  # Changed from 'UTC' to valid enum value
-          # Removed 'default_retrieval: UTC' as it's not a valid property in Hibernate 6.x
+          default_storage: NORMALIZE_UTC
 
-spring.security.jwt.secret: your-very-long-secret-key-here-32chars-minimum-abc123xyz
+spring:
+  security:
+    jwt:
+      secret: ${SPRING_SECURITY_JWT_SECRET:default-local-secret}
 
 logging:
   level:
-    org.springframework.web: DEBUG
-    com.neuralnest: DEBUG
+    org.springframework.web: INFO
+    com.neuralnest: INFO
