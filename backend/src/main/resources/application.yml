@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:postgres}?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:postgres}?sslmode=require&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:neuralnest123}
     driver-class-name: org.postgresql.Driver
