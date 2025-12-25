@@ -16,3 +16,7 @@ frontend/.env
 # OS
 .DS_Store
 Thumbs.db
+
+# Local-only / prod files
+content/
+docker-compose-prod.yml
