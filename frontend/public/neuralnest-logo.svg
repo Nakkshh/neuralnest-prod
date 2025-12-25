@@ -1,0 +1,51 @@
+<svg
+  width="48"
+  height="48"
+  viewBox="0 0 48 48"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Outer Gradient Box -->
+  <defs>
+    <linearGradient id="nnGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38BDF8" />   <!-- sky-400 -->
+      <stop offset="50%" stop-color="#3B82F6" />  <!-- blue-500 -->
+      <stop offset="100%" stop-color="#9333EA" /> <!-- purple-600 -->
+    </linearGradient>
+  </defs>
+
+  <rect
+    x="1"
+    y="1"
+    width="46"
+    height="46"
+    rx="14"
+    fill="url(#nnGradient)"
+    stroke="rgba(255,255,255,0.2)"
+    stroke-width="2"
+  />
+
+  <!-- Inner White Box -->
+  <rect
+    x="10"
+    y="10"
+    width="28"
+    height="28"
+    rx="8"
+    fill="rgba(255,255,255,0.95)"
+  />
+
+  <!-- NN Text -->
+  <text
+    x="24"
+    y="29"
+    text-anchor="middle"
+    font-size="16"
+    font-weight="900"
+    fill="#4C1D95"
+    font-family="Inter, system-ui, -apple-system, sans-serif"
+    letter-spacing="-1"
+  >
+    NN
+  </text>
+</svg>

@@ -1,29 +1,57 @@
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
 
 spring:
+  profiles:
+    active: prod
+
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:postgres}?sslmode=require&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:neuralnest123}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=require
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
     hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+      validation-timeout: 5000
       connection-init-sql: SET TIME ZONE 'UTC'
+
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: validate   # 🔒 VERY IMPORTANT for prod
     properties:
       hibernate:
+        format_sql: false
         jdbc:
           time_zone: UTC
         timezone:
           default_storage: NORMALIZE_UTC
+
   security:
     jwt:
-      secret: ${SPRING_SECURITY_JWT_SECRET:default-local-secret}
+      secret: ${SPRING_SECURITY_JWT_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
 
 logging:
   level:
-    org.springframework.web: INFO
+    root: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: OFF
     com.neuralnest: INFO

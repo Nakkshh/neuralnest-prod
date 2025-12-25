@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useCallback } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext.jsx';
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE = 'https://neuralnest-prod.onrender.com';
 
 export const TaskList = ({ onTaskLoadChange }) => {
   const { user } = useContext(AuthContext);
@@ -115,10 +115,14 @@ export const TaskList = ({ onTaskLoadChange }) => {
         </h3>
         <button 
           onClick={fetchTasks}
-          className="px-4 py-2 bg-sky-500/90 hover:bg-sky-600 text-sm rounded-xl text-white font-bold shadow-lg disabled:opacity-60"
+          className="px-4 py-2 bg-sky-500/90 hover:bg-sky-600 text-sm rounded-xl text-white font-bold shadow-lg disabled:opacity-60 transition-all"
           disabled={loading || !token}
+          title="Refresh Tasks"
         >
-          {loading ? '...' : '🔄 Refresh'}
+          {/* Icon only on screens ≤375px */}
+          <span className="block sm:hidden text-lg">🔄</span>
+          {/* Full text on screens >375px */}
+          <span className="hidden sm:block">🔄 Refresh</span>
         </button>
       </div>
 
@@ -134,9 +138,13 @@ export const TaskList = ({ onTaskLoadChange }) => {
         <button
           onClick={addTask}
           disabled={loading || !token}
-          className="bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600 px-8 py-4 rounded-2xl font-bold text-black shadow-xl hover:shadow-2xl transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+          className="bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600 rounded-2xl font-bold text-black shadow-xl hover:shadow-2xl transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center
+               px-4 py-3 sm:px-8 sm:py-4 w-auto max-w-[80px] sm:max-w-none"
         >
-          Add
+          {/* Small icon only on screens ≤375px */}
+          <span className="block sm:hidden text-lg">➕</span>
+          {/* Full text "Add" on screens >375px */}
+          <span className="hidden sm:block">Add</span>
         </button>
       </div>
 

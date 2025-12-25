@@ -1,18 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; 
 import { X, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';      // <-- NEW
 import { useNavigate } from 'react-router-dom';  // <-- NEW
 
 export default function AuthModal({ isOpen, onClose }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);         // optional UX
   const [error, setError] = useState(null);              // optional UX
 
   const { login } = useAuth();       // from AuthContext
   const navigate = useNavigate();    // for redirect
+
+  useEffect(() => {
+    if (isOpen) {
+      setEmail('');
+      setPassword('');
+      setError(null);
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +30,7 @@ export default function AuthModal({ isOpen, onClose }) {
     try {
       const endpoint = isLogin ? 'login' : 'register';
       const response = await fetch(
-        `http://localhost:8080/api/auth/${endpoint}`,
+        `https://neuralnest-prod.onrender.com/api/auth/${endpoint}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

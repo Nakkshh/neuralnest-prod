@@ -8,9 +8,7 @@ import { useCognitiveLoad } from '../hooks/useCognitiveLoad';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 
-
-
-const API_BASE = 'http://localhost:8080';
+const API_BASE = 'https://neuralnest-prod.onrender.com';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -18,21 +16,23 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [taskLoad, setTaskLoad] = useState(0);
   const [burnoutAlert, setBurnoutAlert] = useState({ timeLeft: 'Safe' });
-  
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState(0);
+    
   // ✅ PERSISTENT STATE - Survives refresh
   const [sessionData, setSessionData] = useState(() => {
-    const saved = localStorage.getItem('neuralnest-session');
-    return saved ? JSON.parse(saved) : {
+    const saved = localStorage.getItem('neuralnest-session');  // ✅ READS localStorage
+    return saved ? JSON.parse(saved) : {                    // ✅ USES saved data
       totalSwitches: 0,
       totalReports: 0,
       sessionStart: Date.now()
     };
   });
 
-  const [lastBrainLoad, setLastBrainLoad] = useState(() => {
-    const saved = localStorage.getItem('nn-last-brain-load');
-    return saved ? Number(saved) : 0;
-  });
+  const [peakBrainLoad, setPeakBrainLoad] = useState(() => {
+  const saved = localStorage.getItem('nn-peak-brain-load');
+  return saved ? Number(saved) : 0;
+});
 
   // ✅ FIX: Destructure hook values
   const {
@@ -46,7 +46,7 @@ const Dashboard = () => {
     loadScore
   } = useCognitiveLoad(taskLoad);
 
-  const displayLoad = isActive ? loadScore : lastBrainLoad;
+  const displayLoad = isActive ? loadScore : 0 ;
   const isDistracted = isActive && !isFocused && switchCount >= 3;
 
   // 🔥 Save session data to localStorage
@@ -55,15 +55,15 @@ const Dashboard = () => {
   }, [sessionData]);
 
   useEffect(() => {
-  if (isActive) {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLastBrainLoad(loadScore);
+    if (isActive && loadScore > peakBrainLoad) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPeakBrainLoad(loadScore);
     }
-  }, [isActive, loadScore]);
+  }, [isActive, loadScore, peakBrainLoad]);
 
   useEffect(() => {
-    localStorage.setItem('nn-last-brain-load', String(lastBrainLoad));
-  }, [lastBrainLoad]);
+  localStorage.setItem('nn-peak-brain-load', String(peakBrainLoad));
+}, [peakBrainLoad]);
 
   // Replace the burnout useEffect:
   useEffect(() => {
@@ -91,120 +91,186 @@ const Dashboard = () => {
     }
   }, [loadScore, taskLoad, user?.token]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSessionDuration(Math.round((Date.now() - sessionData.sessionStart) / 60000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [sessionData.sessionStart]);
+
   // 🔥 ALL BUTTONS WORK!
   const saveReport = async () => {
     const report = {
       timestamp: new Date().toISOString(),
-      brainLoad: Math.round(displayLoad * 100),
+      brainLoad: Math.round(peakBrainLoad * 100),
       taskLoad: Math.round(taskLoad * 100),
       typing: charsPerMinute,
       switches: switchCount,
       burnout: burnoutAlert,
       status: isDistracted ? 'DISTRACTED' : 'FOCUSED'
     };
-    
-    // ✅ 1. Save to LOCAL session (YOUR existing logic)
+
+    // Save to local session
     setSessionData(prev => ({
       ...prev,
       totalReports: prev.totalReports + 1,
       lastReport: report
     }));
-    
-    // ✅ 2. NEW: Save to DATABASE
+
+    // Save to database if logged in
     if (user?.token) {
       try {
-        await fetch('http://localhost:8080/api/reports/save', {
+        await fetch('https://neuralnest-prod.onrender.com/api/reports/save', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${user.token}`
           },
           body: JSON.stringify({
-            brainLoad: displayLoad,           // Raw decimal (0.75)
+            brainLoad: displayLoad,
             switchCount: switchCount,
             charsPerMinute: charsPerMinute,
             burnoutRisk: burnoutAlert.timeLeft
           })
         });
-        console.log('✅ Report SAVED to PostgreSQL!');
-      } catch (error) {
-        console.error('DB Save failed:', error);
-        // Don't break PDF - continue
+        console.log('✅ Report saved to PostgreSQL');
+      } catch (err) {
+        console.error('DB save failed:', err);
       }
     }
-    
-    // ✅ 3. YOUR EXISTING PDF logic (unchanged)
-    const doc = new jsPDF();
-    
-    // NeuralNest Logo
-    doc.setFontSize(24);
-    doc.setTextColor(30, 144, 255);
-    doc.text('NeuralNest', 20, 30);
-    doc.setFontSize(14);
-    doc.setTextColor(100, 100, 100);
-    doc.text('AI-Powered Brain Monitoring', 20, 45);
-    
-    // Session Report Header
-    doc.setFontSize(20);
+
+    // --- Generate PDF ---
+    const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // --- SVG Logo ---
+    const svgString = `
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="nnGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#38BDF8"/>
+            <stop offset="50%" stop-color="#3B82F6"/>
+            <stop offset="100%" stop-color="#9333EA"/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="46" height="46" rx="14" fill="url(#nnGradient)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+        <rect x="10" y="10" width="28" height="28" rx="8" fill="rgba(255,255,255,0.95)"/>
+        <text x="24" y="29" text-anchor="middle" font-size="16" font-weight="900" fill="#4C1D95" font-family="Inter, system-ui, -apple-system, sans-serif" letter-spacing="-1">NN</text>
+      </svg>
+    `;
+
+    const svgToPng = async (svg) => {
+      return new Promise(resolve => {
+        const img = new Image();
+        const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = url;
+      });
+    };
+
+    const logoBase64 = await svgToPng(svgString);
+
+    // --- Add logo and NeuralNest text ---
+    const logoX = 40;
+    const logoY = 40;
+    const logoSize = 48;
+    doc.addImage(logoBase64, 'PNG', logoX, logoY - 10, logoSize, logoSize);
+
+    const textX = logoX + logoSize + 10;
+    const textY = logoY + 20;
+
+    // Neural (white) with drop shadow
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(28);
     doc.setTextColor(0, 0, 0);
-    doc.text('Session Report #' + (sessionData.totalReports + 1), 20, 70);
-    
+    doc.text('Neural', textX + 1, textY + 1); // shadow offset
+    doc.setTextColor(255, 255, 255);
+    doc.text('Neural', textX, textY);
+
+    // Nest (gradient)
+    const gradient = doc.context2d.createLinearGradient(textX + 90, 0, textX + 180, 0);
+    gradient.addColorStop(0, '#0ea5e9');
+    gradient.addColorStop(0.5, '#3b82f6');
+    gradient.addColorStop(1, '#9333EA');
+    doc.context2d.fillStyle = gradient;
+    doc.text('Nest', textX + 90, textY);
+
+    // Subtitle
     doc.setFontSize(12);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 85);
-    doc.text(`User: ${user?.email}`, 20, 95);
-    
-    // Metrics (manual table layout)
-    doc.setFontSize(16);
-    doc.text('📊 CURRENT METRICS', 20, 115);
-    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('AI-Powered Brain Monitoring', textX, textY + 20);
+
+    // --- Horizontal line ---
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.line(40, textY + 30, pageWidth - 40, textY + 30);
+
+    // --- User Info Section ---
+    let userStartY = textY + 50;
+    const userLines = [
+      `User Name: ${user?.name || 'N/A'}`,
+      `Email: ${user?.email || 'N/A'}`,
+      `Session Date: ${new Date().toLocaleString()}`
+    ];
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text('🧠 Brain Load:', 20, 135);
-    doc.text(`${report.brainLoad}% ${report.brainLoad > 80 ? 'CRITICAL' : report.brainLoad > 60 ? 'HIGH' : 'OPTIMAL'}`, 80, 135);
-    
-    doc.text('📝 Task Load:', 20, 150);
-    doc.text(`${report.taskLoad}%`, 80, 150);
-    
-    doc.text('⌨️ Typing Speed:', 20, 165);
-    doc.text(`${report.typing} cpm`, 80, 165);
-    
-    doc.text('🔄 Context Switches:', 20, 180);
-    doc.text(`${report.switches}`, 80, 180);
-    
-    doc.text('🎯 Focus Status:', 20, 195);
-    doc.text(`${report.status}`, 80, 195);
-    
-    doc.text('⚠️ Burnout Risk:', 20, 210);
-    doc.text(`${report.burnout.timeLeft}`, 80, 210);
-    
-    doc.text('⏱️ Session Duration:', 20, 225);
-    doc.text(`${Math.round((Date.now() - sessionData.sessionStart) / 60000)} minutes`, 80, 225);
-    
+    userLines.forEach((line, i) => {
+      doc.text(line, 40, userStartY + i * 18);
+    });
+
+    // Bottom horizontal line for section
+    doc.line(40, userStartY + userLines.length * 18 + 5, pageWidth - 40, userStartY + userLines.length * 18 + 5);
+
+    // --- Current Metrics Section ---
+    const metricsStartY = userStartY + userLines.length * 18 + 30;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('CURRENT METRICS', 80, metricsStartY);
+
+    const metrics = [
+      ['Brain Load', `${report.brainLoad}%`],
+      ['Task Load', `${report.taskLoad}%`],
+      ['Typing Speed', `${report.typing} cpm`],
+      ['Context Switches', `${report.switches}`],
+      ['Focus Status', report.status],
+      ['Burnout Risk', report.burnout.timeLeft],
+      ['Session Duration', `${sessionDuration} minutes`]
+    ];
+
+    doc.setFontSize(12);
+    metrics.forEach((m, i) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${m[0]}:`, 40, metricsStartY + 25 + i * 18);
+      doc.text(`${m[1]}`, 180, metricsStartY + 25 + i * 18);
+    });
+
+    // --- Footer ---
+    const footerText = '© NeuralNest 2025';
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(120, 120, 120);
+    const textWidth = doc.getTextWidth(footerText);
+    doc.text(footerText, (pageWidth - textWidth) / 2, 800);
+
     // Save PDF
-    doc.save(`NeuralNest-Report-${Date.now()}.pdf`);
-    
-    // ✅ 4. UPGRADED SUCCESS MESSAGE
-    alert(`📊 Report SAVED EVERYWHERE!\n` +
-          `🧠 Brain Load: ${report.brainLoad}%\n` +
-          `💾 PostgreSQL DATABASE\n` +
-          `📄 Downloads folder (PDF)\n` +
-          `🎯 Session storage`);
+    doc.save(`NeuralNest-Report-${Math.round(Date.now())}.pdf`);
+
+    alert(`📄 Report generated!\nBrain Load: ${report.brainLoad}%\nSaved as PDF & session data`);
   };
 
   const viewAnalytics = () => {
-    const duration = Math.round((Date.now() - sessionData.sessionStart) / 60000);
-    const avgLoad = Math.round(displayLoad * 100);
-    const switchesPerMin = duration > 0 ? Math.round(switchCount / duration * 10) / 10 : 0;
-    
-    alert(`📈 ADVANCED ANALYTICS\n\n` +
-      `⏱️ Session: ${duration}min\n` +
-      `🧠 Peak Brain Load: ${avgLoad}%\n` +
-      `🔄 Switches: ${switchCount} (${switchesPerMin}/min)\n` +
-      `📊 Reports: ${sessionData.totalReports}\n` +
-      `⌨️ Typing: ${charsPerMinute}cpm\n` +
-      `⚠️ Burnout: ${burnoutAlert.timeLeft}\n\n` +
-      `🎯 Focus Score: ${isDistracted ? 'LOW' : 'HIGH'}\n` +
-      `💾 Last Report: ${sessionData.lastReport ? new Date(sessionData.lastReport.timestamp).toLocaleTimeString() : 'None'}`
-    );
+    setShowAnalytics(true);
   };
 
   const handleToggleTracking = async () => {
@@ -227,25 +293,36 @@ const Dashboard = () => {
     }
   };
 
-  const resetAllMetrics = () => {
-    if (confirm('🔄 Reset ALL metrics and start fresh?')) {
-      // Clear localStorage (CORRECT syntax)
-      localStorage.removeItem('nn-switch-count');
-      localStorage.removeItem('nn-is-focused');
-      localStorage.removeItem('nn-last-brain-load');
-      localStorage.removeItem('neuralnest-session');
-      
-      // Reset Dashboard states
-      setLastBrainLoad(0);
-      setSessionData({
-        totalSwitches: 0,
-        totalReports: 0,
-        sessionStart: Date.now()
-      });
-      setTaskLoad(0);
-      
-      // FORCE FULL RESET
-      window.location.reload();
+  const resetAllMetrics = async () => {
+    if (confirm('🔄 Reset ALL metrics & start fresh?')) {
+      try {
+        // Backend reset (FIXES 404)
+        const token = localStorage.getItem('nn_token');
+        await fetch(`${API_BASE}/api/tasks/reset`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Local reset ONLY
+        localStorage.removeItem('nn-switch-count');
+        localStorage.removeItem('nn-is-focused');
+        localStorage.removeItem('nn-peak-brain-load');
+        localStorage.removeItem('neuralnest-session');
+        
+        setPeakBrainLoad(0);
+        setSessionData({ totalSwitches: 0, totalReports: 0, sessionStart: Date.now() });
+        setTaskLoad(0);
+        
+        // Reload page to refresh tasks (GUARANTEED SAFE)
+        window.location.reload();
+        
+      } catch (error) {
+        console.error('Reset failed:', error);
+        alert('❌ Reset failed');
+      }
     }
   };
 
@@ -260,45 +337,52 @@ const Dashboard = () => {
                 NN
               </div>
             </div>
-            <span className="text-2xl md:text-3xl font-black tracking-tight text-slate-100 drop-shadow-2xl">
+            <span className="hidden sm:inline text-2xl md:text-3xl font-black tracking-tight text-slate-100 drop-shadow-2xl">
               Neural
               <span className="bg-gradient-to-r from-sky-300 via-blue-200 to-purple-300 bg-clip-text text-transparent">
                 Nest
               </span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            {/* RESET BUTTON */}
             <motion.button
               onClick={resetAllMetrics}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold shadow-xl backdrop-blur-xl border border-white/20 bg-gradient-to-r from-slate-500/90 to-zinc-500/90 hover:from-slate-600 hover:to-zinc-600 text-white"
+              className="inline-flex items-center justify-center px-2 py-2 sm:px-4 sm:py-3 rounded-2xl text-white font-bold shadow-xl backdrop-blur-xl border border-white/20 bg-gradient-to-r from-slate-500/90 to-zinc-500/90 hover:from-slate-600 hover:to-zinc-600 transition-all"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              title="Reset all metrics and start fresh"
+              title="Reset All"
             >
-              🔄 Reset
+              <span className="sm:hidden text-lg">🔄</span> {/* Icon only on small */}
+              <span className="hidden sm:inline">🔄 Reset</span> {/* Full text on sm+ */}
             </motion.button>
 
+            {/* START / STOP TRACKING BUTTON */}
             <motion.button
               onClick={handleToggleTracking}
-              className={`inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold shadow-xl backdrop-blur-xl border border-white/20 ${
+              className={`inline-flex items-center justify-center px-2 py-2 sm:px-5 sm:py-3 rounded-2xl font-bold shadow-xl backdrop-blur-xl border border-white/20 text-white transition-all ${
                 isActive
-                  ? 'bg-gradient-to-r from-emerald-500/90 to-teal-500/90 text-white'
-                  : 'bg-gradient-to-r from-sky-500/90 to-blue-500/90 text-white'
+                  ? 'bg-gradient-to-r from-emerald-500/90 to-teal-500/90'
+                  : 'bg-gradient-to-r from-sky-500/90 to-blue-500/90'
               }`}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              title={isActive ? 'Stop Tracking' : 'Start Tracking'}
             >
-              <Camera className="w-4 h-4" />
-              {isActive ? 'Stop Tracking' : 'Start Tracking'}
+              <span className="sm:hidden text-lg">🎥</span>
+              <span className="hidden sm:inline">{isActive ? 'Stop' : 'Start'} Tracking</span>
             </motion.button>
 
+            {/* LOGOUT BUTTON */}
             <motion.button
               onClick={logout}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-red-500/90 to-red-600 hover:from-red-600 hover:to-red-700 text-sm font-bold shadow-xl backdrop-blur-xl border border-white/20"
+              className="inline-flex items-center justify-center px-2 py-2 sm:px-6 sm:py-3 rounded-2xl font-bold shadow-xl backdrop-blur-xl border border-white/20 bg-gradient-to-r from-red-500/90 to-red-600 hover:from-red-600 hover:to-red-700 text-white transition-all"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              title="Logout"
             >
-              <LogOut className="w-4 h-4" /> Logout
+              <span className="sm:hidden text-lg">🚪</span>
+              <span className="hidden sm:inline"><LogOut className="w-4 h-4 inline mr-1" /> Logout</span>
             </motion.button>
           </div>
         </div>
@@ -331,7 +415,7 @@ const Dashboard = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-sky-500/30 to-purple-500/30 -skew-x-12 -translate-x-20 group-hover:translate-x-0 transition-transform duration-700" />
               <p className="text-xs sm:text-sm text-slate-300 font-mono uppercase tracking-wider mb-3 relative z-10">🧠 Brain Load Score</p>
               <p className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black relative z-10 drop-shadow-2xl">
-                {Math.round(displayLoad * 100)}<span className="text-2xl sm:text-3xl">%</span>
+                {Math.round((isActive ? loadScore : 0) * 100)}<span className="text-2xl sm:text-3xl">%</span>
               </p>
               <p className="text-slate-400 text-xs sm:text-sm font-mono relative z-10 mt-2 tracking-wide uppercase">
                 {isActive
@@ -490,6 +574,111 @@ const Dashboard = () => {
               </motion.div>
             </div>
           </section>
+          {/* ✅ FIXED MODAL - NO Date.now() */}
+            {showAnalytics && (
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4"
+                onClick={() => setShowAnalytics(false)}
+              >
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }} 
+                  animate={{ scale: 1, opacity: 1 }} 
+                  className="bg-slate-900/95 border border-slate-700/70 rounded-3xl max-w-md w-full max-h-[85vh] overflow-y-auto shadow-2xl p-6 sm:p-8"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl">
+                        <span className="text-2xl font-black text-white">📈</span>
+                      </div>
+                      <div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">ADVANCED ANALYTICS</h2>
+                        <p className="text-slate-400 text-sm">Session Overview</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowAnalytics(false)}
+                      className="p-2 hover:bg-slate-800/50 rounded-xl transition-all text-slate-400 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* EXACT SAME ALERT CONTENT - FIXED */}
+                  <div className="space-y-6 text-slate-100">
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="w-3 h-3 rounded-full bg-emerald-400" />
+                        <span className="font-bold text-lg">⏱️ Session</span>
+                      </div>
+                      <div className="text-3xl font-black text-emerald-400">
+                        {sessionDuration}min
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="w-3 h-3 rounded-full bg-purple-400" />
+                        <span className="font-bold text-lg">🧠 Peak Brain Load</span>
+                      </div>
+                      <div className="text-3xl font-black text-purple-400">
+                        {Math.round(peakBrainLoad * 100)}%
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="w-3 h-3 rounded-full bg-orange-400" />
+                        <span className="font-bold text-lg">🔄 Switches</span>
+                      </div>
+                      <div className="text-3xl font-black text-orange-400">
+                        {switchCount}
+                      </div>
+                      <div className="text-sm text-slate-400 mt-2">
+                        {sessionDuration > 0 
+                          ? `${Math.round(switchCount / sessionDuration * 10) / 10}/min`
+                          : '0/min'
+                        }
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 text-center">
+                        <div className="text-xl font-bold text-sky-400 mb-1">📊 Reports</div>
+                        <div className="text-2xl font-black">{sessionData.totalReports}</div>
+                      </div>
+                      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 text-center">
+                        <div className="text-xl font-bold text-emerald-400 mb-1">⌨️ Typing</div>
+                        <div className="text-2xl font-black">{charsPerMinute}cpm</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className={`w-3 h-3 rounded-full ${isDistracted ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                        <span className="font-bold text-lg">🎯 Focus Score</span>
+                      </div>
+                      <div className="text-3xl font-black">
+                        {isDistracted ? 'LOW' : 'HIGH'}
+                      </div>
+                    </div>
+
+                    <div className="text-center pt-4 border-t border-slate-700/50 text-sm text-slate-400 space-y-1">
+                      <div>⚠️ Burnout: {burnoutAlert.timeLeft}</div>
+                      {sessionData.lastReport && (
+                        <div>
+                          💾 Last Report: {new Date(sessionData.lastReport.timestamp).toLocaleTimeString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
         </div>
       </div>
     </>
