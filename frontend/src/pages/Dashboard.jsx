@@ -17,7 +17,6 @@ const Dashboard = () => {
   const [taskLoad, setTaskLoad] = useState(0);
   const [burnoutAlert, setBurnoutAlert] = useState({ timeLeft: 'Safe' });
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [sessionDuration, setSessionDuration] = useState(0);
     
   // ✅ PERSISTENT STATE - Survives refresh
   const [sessionData, setSessionData] = useState(() => {
@@ -47,7 +46,7 @@ const Dashboard = () => {
   } = useCognitiveLoad(taskLoad);
 
   const displayLoad = isActive ? loadScore : 0 ;
-  const isDistracted = isActive && !isFocused && switchCount >= 3;
+  const isDistracted = isActive && !isFocused && switchCount >= 5;
 
   // 🔥 Save session data to localStorage
   useEffect(() => {
@@ -90,13 +89,6 @@ const Dashboard = () => {
       });
     }
   }, [loadScore, taskLoad, user?.token]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSessionDuration(Math.round((Date.now() - sessionData.sessionStart) / 60000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [sessionData.sessionStart]);
 
   // 🔥 ALL BUTTONS WORK!
   const saveReport = async () => {
@@ -245,7 +237,7 @@ const Dashboard = () => {
       ['Context Switches', `${report.switches}`],
       ['Focus Status', report.status],
       ['Burnout Risk', report.burnout.timeLeft],
-      ['Session Duration', `${sessionDuration} minutes`]
+      // ['Session Duration', `${sessionDuration} minutes`]
     ];
 
     doc.setFontSize(12);
@@ -610,7 +602,7 @@ const Dashboard = () => {
 
                   {/* EXACT SAME ALERT CONTENT - FIXED */}
                   <div className="space-y-6 text-slate-100">
-                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                    {/* <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
                       <div className="flex items-center gap-3 mb-3">
                         <span className="w-3 h-3 rounded-full bg-emerald-400" />
                         <span className="font-bold text-lg">⏱️ Session</span>
@@ -618,7 +610,7 @@ const Dashboard = () => {
                       <div className="text-3xl font-black text-emerald-400">
                         {sessionDuration}min
                       </div>
-                    </div>
+                    </div> */}
 
                     <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
                       <div className="flex items-center gap-3 mb-3">
@@ -638,12 +630,12 @@ const Dashboard = () => {
                       <div className="text-3xl font-black text-orange-400">
                         {switchCount}
                       </div>
-                      <div className="text-sm text-slate-400 mt-2">
+                      {/* <div className="text-sm text-slate-400 mt-2">
                         {sessionDuration > 0 
                           ? `${Math.round(switchCount / sessionDuration * 10) / 10}/min`
                           : '0/min'
                         }
-                      </div>
+                      </div> */}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

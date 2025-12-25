@@ -19,4 +19,4 @@ Thumbs.db
 
 # Local-only / prod files
 content/
-docker-compose-prod.yml
+docker-compose.prod.yml

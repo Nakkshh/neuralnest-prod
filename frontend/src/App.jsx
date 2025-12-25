@@ -98,7 +98,7 @@ function LandingContent() {
                     NN
                   </div>
                 </div>
-                <span className="hidden xs:inline text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-slate-100 drop-shadow-2xl">
+                <span className="hidden md:inline text-xl md:text-2xl lg:text-3xl font-black tracking-tight text-slate-100 drop-shadow-2xl">
                   Neural
                   <span className="bg-gradient-to-r from-sky-300 via-blue-200 to-purple-300 bg-clip-text text-transparent">
                     Nest
@@ -518,7 +518,7 @@ function LandingContent() {
             <div className="text-sm text-slate-500">
               Made with <span className="text-red-400 mx-1">❤️</span> by 
               <a 
-                href="https://github.com/nakshh" 
+                href="https://github.com/Nakkshh" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="font-semibold text-sky-400 hover:text-sky-300 hover:underline transition-all ml-1"
