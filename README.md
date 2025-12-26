@@ -109,9 +109,7 @@ No intrusive tracking. No productivity spying. Just cognitive intelligence.
 - REST APIs  
 - PostgreSQL  
 
-## 🗄️ Database Setup
-
-### Production
+### Database
 - Currently hosted on **Render PostgreSQL**
 - Planned migration to **Neon** for:
   - Fully managed cloud database
@@ -156,6 +154,9 @@ npm run dev
 # Backend
 cd backend
 mvn spring-boot:run
+```
+
+---
 
 ## 🧠 Vision
 
@@ -167,3 +168,4 @@ NeuralNest aims to become the standard cognitive layer for modern work — helpi
 
 **Nakshatra Jain**  
 GitHub: [@Nakkshh](https://github.com/Nakkshh)
+
