@@ -131,7 +131,9 @@ No intrusive tracking. No productivity spying. Just cognitive intelligence.
 **NeuralNest measures cognitive load, not productivity.**
 
 ---
+<img width="1536" height="1024" alt="ChatGPT Image Dec 27, 2025, 05_13_36 PM" src="https://github.com/user-attachments/assets/962e7cdb-24c4-40b0-b64c-364fcd6f32d1" />
 
+---
 ## 🌐 Live Links
 
 - 🔗 Frontend App: https://neuralnest-prod.netlify.app/
